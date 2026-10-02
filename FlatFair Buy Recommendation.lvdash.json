@@ -1,0 +1,773 @@
+{
+  "datasets": [
+    {
+      "name": "town_options",
+      "displayName": "Town Options",
+      "queryLines": [
+        "SELECT DISTINCT\n",
+        "  town\n",
+        "FROM\n",
+        "  workspace.flatfair.buy_recommendations\n",
+        "ORDER BY\n",
+        "  town"
+      ]
+    },
+    {
+      "name": "affordable_alternatives",
+      "displayName": "Affordable Alternatives",
+      "queryLines": [
+        "SELECT\n",
+        "  town,\n",
+        "  flat_type,\n",
+        "  ensemble_prediction AS predicted_price,\n",
+        "  ROUND(price_momentum, 2) AS price_momentum,\n",
+        "  ROUND(model_diff_pct, 1) AS model_diff_pct,\n",
+        "  CASE\n",
+        "    WHEN models_agree THEN 'PASS'\n",
+        "    ELSE 'FAIL'\n",
+        "  END AS agreement_check\n",
+        "FROM\n",
+        "  workspace.flatfair.buy_recommendations\n",
+        "WHERE\n",
+        "  ensemble_prediction <= :budget\n",
+        "  AND models_agree = true\n",
+        "  AND ensemble_prediction > 0\n",
+        "ORDER BY\n",
+        "  ensemble_prediction ASC\n",
+        "LIMIT 15"
+      ],
+      "parameters": [
+        {
+          "displayName": "Budget",
+          "keyword": "budget",
+          "dataType": "INTEGER",
+          "defaultSelection": {
+            "values": {
+              "dataType": "INTEGER",
+              "values": [
+                {
+                  "value": "500000"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "price_comparison",
+      "displayName": "Price Comparison",
+      "queryLines": [
+        "SELECT\n",
+        "  'Latest Actual' AS metric,\n",
+        "  latest_actual_price AS price\n",
+        "FROM\n",
+        "  workspace.flatfair.buy_recommendations\n",
+        "WHERE\n",
+        "  town = :town\n",
+        "  AND flat_type = :flat_type\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'LightGBM' AS metric,\n",
+        "  lgbm_prediction AS price\n",
+        "FROM\n",
+        "  workspace.flatfair.buy_recommendations\n",
+        "WHERE\n",
+        "  town = :town\n",
+        "  AND flat_type = :flat_type\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Random Forest' AS metric,\n",
+        "  rf_prediction AS price\n",
+        "FROM\n",
+        "  workspace.flatfair.buy_recommendations\n",
+        "WHERE\n",
+        "  town = :town\n",
+        "  AND flat_type = :flat_type\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Ensemble' AS metric,\n",
+        "  ensemble_prediction AS price\n",
+        "FROM\n",
+        "  workspace.flatfair.buy_recommendations\n",
+        "WHERE\n",
+        "  town = :town\n",
+        "  AND flat_type = :flat_type\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Your Budget' AS metric,\n",
+        "  :budget AS price\n",
+        "FROM\n",
+        "  workspace.flatfair.buy_recommendations\n",
+        "WHERE\n",
+        "  town = :town\n",
+        "  AND flat_type = :flat_type"
+      ],
+      "parameters": [
+        {
+          "displayName": "Town",
+          "keyword": "town",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "ANG MO KIO"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Flat Type",
+          "keyword": "flat_type",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "3 ROOM"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Budget",
+          "keyword": "budget",
+          "dataType": "INTEGER",
+          "defaultSelection": {
+            "values": {
+              "dataType": "INTEGER",
+              "values": [
+                {
+                  "value": "500000"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "flat_type_options",
+      "displayName": "Flat Type Options",
+      "queryLines": [
+        "SELECT DISTINCT\n",
+        "  flat_type\n",
+        "FROM\n",
+        "  workspace.flatfair.buy_recommendations\n",
+        "ORDER BY\n",
+        "  flat_type"
+      ]
+    },
+    {
+      "name": "recommendation_card",
+      "displayName": "Recommendation Card",
+      "queryLines": [
+        "SELECT\n",
+        "  CASE\n",
+        "    WHEN NOT models_agree THEN 'INCONCLUSIVE - Models Disagree'\n",
+        "    WHEN price_momentum < -5 THEN 'WAIT - Prices Declining'\n",
+        "    WHEN ensemble_prediction <= :budget THEN 'WORTH BUYING'\n",
+        "    ELSE 'OVER BUDGET'\n",
+        "  END AS recommendation,\n",
+        "  town,\n",
+        "  flat_type,\n",
+        "  :budget AS budget,\n",
+        "  ensemble_prediction AS predicted_price,\n",
+        "  ensemble_prediction - :budget AS budget_gap,\n",
+        "  model_diff_pct AS model_agreement_pct,\n",
+        "  models_agree\n",
+        "FROM\n",
+        "  workspace.flatfair.buy_recommendations\n",
+        "WHERE\n",
+        "  town = :town\n",
+        "  AND flat_type = :flat_type"
+      ],
+      "parameters": [
+        {
+          "displayName": "Town",
+          "keyword": "town",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "ANG MO KIO"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Flat Type",
+          "keyword": "flat_type",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "3 ROOM"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Budget",
+          "keyword": "budget",
+          "dataType": "INTEGER",
+          "defaultSelection": {
+            "values": {
+              "dataType": "INTEGER",
+              "values": [
+                {
+                  "value": "500000"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "model_comparison",
+      "displayName": "Model Comparison",
+      "queryLines": [
+        "SELECT\n",
+        "  town,\n",
+        "  flat_type,\n",
+        "  latest_month,\n",
+        "  latest_actual_price,\n",
+        "  lgbm_prediction,\n",
+        "  rf_prediction,\n",
+        "  ensemble_prediction,\n",
+        "  ROUND(model_diff_pct, 1) AS model_diff_pct,\n",
+        "  CASE\n",
+        "    WHEN models_agree THEN 'PASS'\n",
+        "    ELSE 'FAIL'\n",
+        "  END AS agreement_check,\n",
+        "  ROUND(price_momentum, 2) AS price_momentum\n",
+        "FROM\n",
+        "  workspace.flatfair.buy_recommendations\n",
+        "WHERE\n",
+        "  town = :town\n",
+        "  AND flat_type = :flat_type"
+      ],
+      "parameters": [
+        {
+          "displayName": "Town",
+          "keyword": "town",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "ANG MO KIO"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Flat Type",
+          "keyword": "flat_type",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "3 ROOM"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "77970a56",
+      "displayName": "Page 1",
+      "layout": [
+        {
+          "widget": {
+            "name": "town_filter",
+            "queries": [
+              {
+                "name": "dashboards/01f1be5ad7941e3e86782dab59fd1bb1/datasets/01f1be5b0ada17de9b2d27da4d225ec3_town",
+                "query": {
+                  "datasetName": "town_options",
+                  "fields": [
+                    {
+                      "name": "town",
+                      "expression": "`town`"
+                    },
+                    {
+                      "name": "town_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f1be5ad7941e3e86782dab59fd1bb1/datasets/01f1be5b0cbc1c11bd17eb5600faf105_town",
+                "query": {
+                  "datasetName": "recommendation_card",
+                  "parameters": [
+                    {
+                      "name": "town",
+                      "keyword": "town"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Town"
+              },
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "town",
+                    "queryName": "dashboards/01f1be5ad7941e3e86782dab59fd1bb1/datasets/01f1be5b0ada17de9b2d27da4d225ec3_town"
+                  },
+                  {
+                    "parameterName": "town",
+                    "queryName": "parameter_dashboards/01f1be5ad7941e3e86782dab59fd1bb1/datasets/01f1be5b0cbc1c11bd17eb5600faf105_town"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "flat_type_filter",
+            "queries": [
+              {
+                "name": "dashboards/01f1be5ad7941e3e86782dab59fd1bb1/datasets/01f1be5b0c751c8ebe57d8f1c589c051_flat_type",
+                "query": {
+                  "datasetName": "flat_type_options",
+                  "fields": [
+                    {
+                      "name": "flat_type",
+                      "expression": "`flat_type`"
+                    },
+                    {
+                      "name": "flat_type_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f1be5ad7941e3e86782dab59fd1bb1/datasets/01f1be5b0cbc1c11bd17eb5600faf105_flat_type",
+                "query": {
+                  "datasetName": "recommendation_card",
+                  "parameters": [
+                    {
+                      "name": "flat_type",
+                      "keyword": "flat_type"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Flat Type"
+              },
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "flat_type",
+                    "queryName": "dashboards/01f1be5ad7941e3e86782dab59fd1bb1/datasets/01f1be5b0c751c8ebe57d8f1c589c051_flat_type"
+                  },
+                  {
+                    "parameterName": "flat_type",
+                    "queryName": "parameter_dashboards/01f1be5ad7941e3e86782dab59fd1bb1/datasets/01f1be5b0cbc1c11bd17eb5600faf105_flat_type"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "recommendation_card",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "recommendation_card",
+                  "fields": [
+                    {
+                      "name": "recommendation",
+                      "expression": "`recommendation`"
+                    },
+                    {
+                      "name": "predicted_price",
+                      "expression": "`predicted_price`"
+                    },
+                    {
+                      "name": "budget",
+                      "expression": "`budget`"
+                    },
+                    {
+                      "name": "budget_gap",
+                      "expression": "`budget_gap`"
+                    },
+                    {
+                      "name": "model_agreement_pct",
+                      "expression": "`model_agreement_pct`"
+                    },
+                    {
+                      "name": "models_agree",
+                      "expression": "`models_agree`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Buy Recommendation"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "recommendation",
+                    "headerAlignment": "left"
+                  },
+                  {
+                    "fieldName": "predicted_price",
+                    "headerAlignment": "right"
+                  },
+                  {
+                    "fieldName": "budget",
+                    "headerAlignment": "right"
+                  },
+                  {
+                    "fieldName": "budget_gap",
+                    "headerAlignment": "right"
+                  },
+                  {
+                    "fieldName": "model_agreement_pct",
+                    "headerAlignment": "right"
+                  },
+                  {
+                    "fieldName": "models_agree",
+                    "headerAlignment": "center"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 12,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "model_comparison",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "model_comparison",
+                  "fields": [
+                    {
+                      "name": "latest_month",
+                      "expression": "`latest_month`"
+                    },
+                    {
+                      "name": "latest_actual_price",
+                      "expression": "`latest_actual_price`"
+                    },
+                    {
+                      "name": "lgbm_prediction",
+                      "expression": "`lgbm_prediction`"
+                    },
+                    {
+                      "name": "rf_prediction",
+                      "expression": "`rf_prediction`"
+                    },
+                    {
+                      "name": "ensemble_prediction",
+                      "expression": "`ensemble_prediction`"
+                    },
+                    {
+                      "name": "model_diff_pct",
+                      "expression": "`model_diff_pct`"
+                    },
+                    {
+                      "name": "agreement_check",
+                      "expression": "`agreement_check`"
+                    },
+                    {
+                      "name": "price_momentum",
+                      "expression": "`price_momentum`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Model Comparison"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "latest_month",
+                    "headerAlignment": "center"
+                  },
+                  {
+                    "fieldName": "latest_actual_price",
+                    "headerAlignment": "right"
+                  },
+                  {
+                    "fieldName": "lgbm_prediction",
+                    "headerAlignment": "right"
+                  },
+                  {
+                    "fieldName": "rf_prediction",
+                    "headerAlignment": "right"
+                  },
+                  {
+                    "fieldName": "ensemble_prediction",
+                    "headerAlignment": "right"
+                  },
+                  {
+                    "fieldName": "model_diff_pct",
+                    "headerAlignment": "right"
+                  },
+                  {
+                    "fieldName": "agreement_check",
+                    "headerAlignment": "center"
+                  },
+                  {
+                    "fieldName": "price_momentum",
+                    "headerAlignment": "right"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "affordable_alternatives",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "affordable_alternatives",
+                  "fields": [
+                    {
+                      "name": "town",
+                      "expression": "`town`"
+                    },
+                    {
+                      "name": "flat_type",
+                      "expression": "`flat_type`"
+                    },
+                    {
+                      "name": "predicted_price",
+                      "expression": "`predicted_price`"
+                    },
+                    {
+                      "name": "price_momentum",
+                      "expression": "`price_momentum`"
+                    },
+                    {
+                      "name": "model_diff_pct",
+                      "expression": "`model_diff_pct`"
+                    },
+                    {
+                      "name": "agreement_check",
+                      "expression": "`agreement_check`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Affordable Alternatives"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "town",
+                    "headerAlignment": "left"
+                  },
+                  {
+                    "fieldName": "flat_type",
+                    "headerAlignment": "left"
+                  },
+                  {
+                    "fieldName": "predicted_price",
+                    "headerAlignment": "right"
+                  },
+                  {
+                    "fieldName": "price_momentum",
+                    "headerAlignment": "right"
+                  },
+                  {
+                    "fieldName": "model_diff_pct",
+                    "headerAlignment": "right"
+                  },
+                  {
+                    "fieldName": "agreement_check",
+                    "headerAlignment": "center"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 5,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "price_comparison",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "price_comparison",
+                  "fields": [
+                    {
+                      "name": "metric",
+                      "expression": "`metric`"
+                    },
+                    {
+                      "name": "sum(price)",
+                      "expression": "SUM(`price`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Price Comparison"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "metric",
+                  "displayName": "metric",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(price)",
+                  "displayName": "price",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "metric",
+                  "displayName": "metric",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 12,
+            "height": 5
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}
